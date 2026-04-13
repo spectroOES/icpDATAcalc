@@ -63,24 +63,42 @@ if uploaded_file:
         
         for el in elements:
             try:
-                avg_row = block[block['Category'].str.contains('average', case=False, na=False)]
-                sd_row = block[block['Category'].str.contains('SD', case=False, na=False)]
-                rsd_row = block[block['Category'].str.contains('RSD', case=False, na=False)]
-                mql_row = block[block['Category'].str.contains('MQL', case=False, na=False)]
-
-                avg_raw = avg_row[el].values[0]
-                sd_val = float(sd_row[el].values[0])
-                rsd_val = float(rsd_row[el].values[0])
-                mql_val = float(mql_row[el].values[0])
+                # Фильтруем строки блока по категориям
+                avg_val = block[block['Category'].str.contains('average', case=False, na=False)][el].values[0]
+                sd_val  = float(block[block['Category'].str.contains('SD', case=False, na=False)][el].values[0])
+                rsd_val = float(block[block['Category'].str.contains('RSD', case=False, na=False)][el].values[0])
+                mql_val = float(block[block['Category'].str.contains('MQL', case=False, na=False)][el].values[0])
                 
-                avg_str = str(avg_raw)
-                
-                if "<LQ" in avg_str or float(avg_raw) < mql_val:
+                # Логика проверки LOQ и RSD
+                if "<LQ" in str(avg_val) or float(avg_val) < mql_val:
                     res = f"<{round(sd_val * 10, 3)}"
                 else:
-                    num_avg = float(avg_raw)
+                    num_avg = float(avg_val)
                     if rsd_val > rsd_high:
                         res = f"{num_avg}!!"
                     elif rsd_val > rsd_low:
                         res = f"{num_avg}!"
                     else:
+                        res = str(num_avg)
+                new_row[el] = res
+            except:
+                new_row[el] = "n/a"
+        
+        final_results.append(new_row)
+
+    if final_results:
+        res_df = pd.DataFrame(final_results)
+        st.success(f"Successfully processed {len(res_df)} samples.")
+        st.dataframe(res_df)
+
+        # Подготовка файла к скачиванию
+        output = io.BytesIO()
+        res_df.to_csv(output, index=False, encoding='utf-8-sig')
+        st.download_button(
+            label="📥 DOWNLOAD PROCESSED REPORT", 
+            data=output.getvalue(), 
+            file_name="ICP_Analysis_Report.csv", 
+            mime="text/csv"
+        )
+    else:
+        st.error("No valid data found. Please check your file structure.")
