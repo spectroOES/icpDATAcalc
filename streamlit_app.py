@@ -12,34 +12,20 @@ st.write("Professional utility for processing atomic spectrometry data.")
 with st.expander("ℹ️ View Input File Requirements & RSD Logic"):
     st.markdown("""
     ### **Input File Requirements**
-    1. **Structure:** Each sample must consist of exactly **4 rows** in this specific order:
-        * `Concentration average`
-        * `Concentration SD`
-        * `Concentration RSD`
-        * `MQL`
-    2. **Required Columns:**
-        * `Category`: Identifying the row type (Avg, SD, etc.).
-        * `Label`: The Sample Name (repeated in all 4 rows or at least the first row).
-    3. **Element Header Row:** Each cell in the element columns should contain: **Element Symbol, Wavelength (nm), View (Axial/Radial), and Tuning Set info.**
-    4. **Format:** Standard CSV (comma-separated).
-
-    ### **RSD Monitoring Logic**
-    You may customize the RSD% limits in the sidebar to suit your analytical requirements. 
-    * **Default Calculation:** By default, all averages with an **RSD < 6%** are considered stable.
-    * **Questionable Results (!):** RSD values between **6% and 10%** are flagged with a **"!"**. These results should be treated with caution.
-    * **High Variability (!!):** If the sample average is above the LOQ (calculated as $SD \\times 10$), but the **RSD exceeds 10%**, the result is flagged with **"!!"**. 
+    1. **Structure:** Each sample must consist of exactly **4 rows** (Avg, SD, RSD, MQL).
+    2. **Required Columns:** `Category` and `Label`.
+    3. **Element Header Row:** Must contain Symbol, Wavelength, View, and Tuning info.
     
-    **Note:** Results marked with "!!" require thorough inspection, as high variability often indicates poor reliability and may necessitate re-evaluation.
+    ### **RSD Monitoring Logic**
+    * **RSD < 6%:** Considered stable.
+    * **6% - 10%:** Flagged with **"!"** (Questionable).
+    * **> 10% (and > LOQ):** Flagged with **"!!"** (High variability, inspect result).
     """)
 
 # --- Sidebar Settings ---
 st.sidebar.header("RSD Control Limits")
-st.sidebar.write("Customize your flagging thresholds:")
 rsd_low = st.sidebar.slider("Yellow Flag (!)", 1.0, 15.0, 6.0, 0.5)
 rsd_high = st.sidebar.slider("Red Flag (!!)", 1.0, 25.0, 10.0, 0.5)
-
-st.sidebar.markdown("---")
-st.sidebar.info("Tip: Adjust these limits based on your specific method validation requirements.")
 
 # --- File Upload ---
 uploaded_file = st.file_uploader("Upload your source CSV file", type="csv")
@@ -50,7 +36,8 @@ if uploaded_file:
     
     elements = [col for col in df.columns if col not in ['Category', 'Label']]
     final_results = []
-    
+    mql_values = {} # Для хранения значений MQL для финальной строки
+
     total_rows = len(df)
     valid_rows = total_rows - (total_rows % 4)
 
@@ -63,13 +50,17 @@ if uploaded_file:
         
         for el in elements:
             try:
-                # Фильтруем строки блока по категориям
+                # Извлекаем данные из блока
                 avg_val = block[block['Category'].str.contains('average', case=False, na=False)][el].values[0]
                 sd_val  = float(block[block['Category'].str.contains('SD', case=False, na=False)][el].values[0])
                 rsd_val = float(block[block['Category'].str.contains('RSD', case=False, na=False)][el].values[0])
                 mql_val = float(block[block['Category'].str.contains('MQL', case=False, na=False)][el].values[0])
                 
-                # Логика проверки LOQ и RSD
+                # Сохраняем MQL (перезаписываем, так как они одинаковые)
+                if el not in mql_values:
+                    mql_values[el] = mql_val
+                
+                # Основная логика обработки
                 if "<LQ" in str(avg_val) or float(avg_val) < mql_val:
                     res = f"<{round(sd_val * 10, 3)}"
                 else:
@@ -88,10 +79,17 @@ if uploaded_file:
 
     if final_results:
         res_df = pd.DataFrame(final_results)
-        st.success(f"Successfully processed {len(res_df)} samples.")
+        
+        # ДОБАВЛЕНИЕ СТРОКИ MQL В КОНЕЦ
+        if mql_values:
+            mql_row = {'Sample Name': 'MQL, mg/L'}
+            mql_row.update(mql_values)
+            res_df = pd.concat([res_df, pd.DataFrame([mql_row])], ignore_index=True)
+
+        st.success(f"Processed {len(final_results)} samples + MQL reference row.")
         st.dataframe(res_df)
 
-        # Подготовка файла к скачиванию
+        # Скачивание
         output = io.BytesIO()
         res_df.to_csv(output, index=False, encoding='utf-8-sig')
         st.download_button(
@@ -100,5 +98,3 @@ if uploaded_file:
             file_name="ICP_Analysis_Report.csv", 
             mime="text/csv"
         )
-    else:
-        st.error("No valid data found. Please check your file structure.")
