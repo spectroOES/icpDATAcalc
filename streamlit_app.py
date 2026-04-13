@@ -65,4 +65,22 @@ if uploaded_file:
             try:
                 avg_row = block[block['Category'].str.contains('average', case=False, na=False)]
                 sd_row = block[block['Category'].str.contains('SD', case=False, na=False)]
-                rsd_row = block[block['Category'].str.contains('RSD', case=False)]
+                rsd_row = block[block['Category'].str.contains('RSD', case=False, na=False)]
+                mql_row = block[block['Category'].str.contains('MQL', case=False, na=False)]
+
+                avg_raw = avg_row[el].values[0]
+                sd_val = float(sd_row[el].values[0])
+                rsd_val = float(rsd_row[el].values[0])
+                mql_val = float(mql_row[el].values[0])
+                
+                avg_str = str(avg_raw)
+                
+                if "<LQ" in avg_str or float(avg_raw) < mql_val:
+                    res = f"<{round(sd_val * 10, 3)}"
+                else:
+                    num_avg = float(avg_raw)
+                    if rsd_val > rsd_high:
+                        res = f"{num_avg}!!"
+                    elif rsd_val > rsd_low:
+                        res = f"{num_avg}!"
+                    else:
