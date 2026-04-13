@@ -65,4 +65,4 @@ if uploaded_file:
             try:
                 avg_row = block[block['Category'].str.contains('average', case=False, na=False)]
                 sd_row = block[block['Category'].str.contains('SD', case=False, na=False)]
-                rsd_row = block[block['Category'].str.contains('RSD', case=False)
+                rsd_row = block[block['Category'].str.contains('RSD', case=False)]
