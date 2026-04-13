@@ -2,23 +2,44 @@ import streamlit as st
 import pandas as pd
 import io
 
-st.set_page_config(page_title="ICP-OES Lab Tool", page_icon="🧪")
+st.set_page_config(page_title="ICP-OES Data Processor", page_icon="🧪")
 
-st.title("🧪 Обработка данных ICP-OES")
-st.write("Настройте пороги RSD и загрузите ваш CSV файл.")
+# --- UI Header ---
+st.title("🧪 ICP-OES Analytical Tool")
+st.write("Professional utility for processing atomic spectrometry data.")
 
-# Настройки порогов в боковой панели
-st.sidebar.header("Параметры контроля")
-rsd_low = st.sidebar.slider("Порог для '!' (RSD %)", 1.0, 15.0, 6.0, 0.5)
-rsd_high = st.sidebar.slider("Порог для '!!' (RSD %)", 1.0, 25.0, 10.0, 0.5)
+# --- Instructions Section ---
+with st.expander("ℹ️ View Input File Requirements"):
+    st.markdown("""
+    **The source CSV file must follow these rules:**
+    1. **Structure:** Each sample must consist of exactly **4 rows** in this specific order:
+        * `Concentration average`
+        * `Concentration SD`
+        * `Concentration RSD`
+        * `MQL`
+    2. **Columns:** The file must contain at least the following columns:
+        * `Category`: Identifying the row type (Avg, SD, etc.)
+        * `Label`: The Sample Name (repeated or in the first row of the block)
+        * `Element Columns`: Chemical elements (e.g., Fe, Cu, Zn...) with numeric data.
+    3. **Format:** Save as a Standard CSV (comma-separated).
+    """)
 
-uploaded_file = st.file_uploader("Перетащите сюда файл .csv", type="csv")
+# --- Sidebar Settings ---
+st.sidebar.header("RSD Control Limits")
+st.sidebar.write("Set thresholds for visual flags:")
+rsd_low = st.sidebar.slider("Yellow Flag (!)", 1.0, 15.0, 6.0, 0.5, help="Mark values with '!' if RSD exceeds this limit.")
+rsd_high = st.sidebar.slider("Red Flag (!!)", 1.0, 25.0, 10.0, 0.5, help="Mark values with '!!' if RSD exceeds this limit.")
+
+st.sidebar.markdown("---")
+st.sidebar.info("Tip: RSD thresholds help identify stability issues in the plasma.")
+
+# --- File Upload ---
+uploaded_file = st.file_uploader("Upload your source CSV file", type="csv")
 
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
     df.columns = df.columns.str.strip()
     
-    # Логика обработки
     elements = [col for col in df.columns if col not in ['Category', 'Label']]
     final_results = []
     
@@ -34,6 +55,7 @@ if uploaded_file:
         
         for el in elements:
             try:
+                # Identification by Category labels
                 avg_row = block[block['Category'].str.contains('average', case=False, na=False)]
                 sd_row = block[block['Category'].str.contains('SD', case=False, na=False)]
                 rsd_row = block[block['Category'].str.contains('RSD', case=False, na=False)]
@@ -44,6 +66,7 @@ if uploaded_file:
                 rsd_val = float(rsd_row[el].values[0])
                 mql_val = float(mql_row[el].values[0])
                 
+                # Logic: MQL check and RSD flagging
                 if "<LQ" in str(avg_raw) or float(avg_raw) < mql_val:
                     res = f"<{round(sd_val * 10, 3)}"
                 else:
@@ -62,15 +85,16 @@ if uploaded_file:
 
     res_df = pd.DataFrame(final_results)
     
-    st.success(f"Обработано образцов: {len(res_df)}")
-    st.dataframe(res_df) # Предпросмотр таблицы на сайте
+    st.subheader("Results Preview")
+    st.success(f"Successfully processed {len(res_df)} samples.")
+    st.dataframe(res_df)
 
-    # Подготовка к скачиванию
+    # Download Button
     output = io.BytesIO()
     res_df.to_csv(output, index=False, encoding='utf-8-sig')
     st.download_button(
-        label="📥 СКАЧАТЬ ГОТОВЫЙ ОТЧЕТ",
+        label="📥 DOWNLOAD PROCESSED REPORT",
         data=output.getvalue(),
-        file_name="ICP_Processed_Report.csv",
+        file_name="ICP_Analysis_Report.csv",
         mime="text/csv"
     )
