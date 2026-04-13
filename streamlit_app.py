@@ -27,7 +27,7 @@ with st.expander("ℹ️ View Input File Requirements & RSD Logic"):
     You may customize the RSD% limits in the sidebar to suit your analytical requirements. 
     * **Default Calculation:** By default, all averages with an **RSD < 6%** are considered stable.
     * **Questionable Results (!):** RSD values between **6% and 10%** are flagged with a **"!"**. These results should be treated with caution.
-    * **High Variability (!!):** If the sample average is above the LOQ (calculated as $SD \times 10$), but the **RSD exceeds 10%**, the result is flagged with **"!!"**. 
+    * **High Variability (!!):** If the sample average is above the LOQ (calculated as $SD \\times 10$), but the **RSD exceeds 10%**, the result is flagged with **"!!"**. 
     
     **Note:** Results marked with "!!" require thorough inspection, as high variability often indicates poor reliability and may necessitate re-evaluation.
     """)
@@ -65,9 +65,4 @@ if uploaded_file:
             try:
                 avg_row = block[block['Category'].str.contains('average', case=False, na=False)]
                 sd_row = block[block['Category'].str.contains('SD', case=False, na=False)]
-                rsd_row = block[block['Category'].str.contains('RSD', case=False, na=False)]
-                mql_row = block[block['Category'].str.contains('MQL', case=False, na=False)]
-
-                avg_raw = avg_row[el].values[0]
-                sd_val = float(sd_row[el].values[0])
-                rsd_val = float(rsd_row[el
+                rsd_row = block[block['Category'].str.contains('RSD', case=False
